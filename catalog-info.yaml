@@ -1,0 +1,41 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: intel-llm-cpu-serving
+  title: intel-llm-cpu-serving
+  description: "Migrate the existing Serve LLMs on Intel Xeon CPUs guided lab into
+    Publishing House. Learners consume a platform-managed model endpoint and
+    tenant key, connect a RAG frontend, load documents and evaluate responses.
+    Standalone CPU model serving remains in rhpds/llm-cpu-serving. PH owns
+    generated AgnosticV and RHDP onboarding; Dallas is the development test
+    environment. Preserve source PR history. Tracking: GPTEINFRA-17783 and
+    INTEL-46."
+  annotations:
+    ph.rhdp.io/content-type: lab
+    ph.rhdp.io/deployment-mode: rhdp_published
+    ph.rhdp.io/github-user: jkershawrh
+    ph.rhdp.io/owner: jkershaw@redhat.com
+    ph.rhdp.io/migrated-repo: https://github.com/rhpds/showroom-intel-llm-cpu-serving
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: rhpds/intel-llm-cpu-serving
+    ph.rhdp.io/created-at: 2026-10-20T13:33:09.196Z
+  tags:
+    - publishing-house
+    - lab
+    - rhdp-published
+    - migration
+  links:
+    - url: https://github.com/rhpds/intel-llm-cpu-serving
+      title: Repository
+      icon: github
+    - url: https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/intel-llm-cpu-serving
+      title: Open in DevSpaces
+      icon: catalog
+    - url: https://central-api-publishing-house.apps.ocpv-infra02.wdc07.infra.demo.redhat.com
+      title: Central
+      icon: dashboard
+spec:
+  type: content
+  lifecycle: experimental
+  owner: rhdp-team
+  system: publishing-house
