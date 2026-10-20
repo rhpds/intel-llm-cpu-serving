@@ -1,89 +1,28 @@
-# [Project Title]
+# Serve LLMs on Intel Xeon CPUs
 
-<!-- This file is the design document for your lab or demo. -->
-<!-- Fill in each section below, or run /rhdp-publishing-house to have the intake skill help. -->
-<!-- Sections marked with [brackets] are placeholders — replace with real content. -->
-<!-- The validation gate checks for all required sections before submission. -->
+## Delivery ownership
 
-## Overview
+Migrate the existing Serve LLMs on Intel Xeon CPUs guided lab into Publishing House. Learners consume a platform-managed model endpoint and tenant key, connect a RAG frontend, load documents and evaluate responses. Standalone CPU model serving remains in rhpds/llm-cpu-serving. PH owns generated AgnosticV and RHDP onboarding; Dallas is the development test environment. Preserve source PR history. Tracking: GPTEINFRA-17783 and INTEL-46.
 
-[2-3 sentences on what this lab or demo is and why it exists. Then a direct description of what participants will do — specific enough that someone reading this section immediately understands the content without interpretation. No flowery language. Example: "Participants will deploy a 3-tier application on OpenShift, configure autoscaling, and troubleshoot a simulated pod failure."]
+PH owns intake, reviews, Env Setup, generated AgnosticV and onboarding. Existing catalog PRs are historical proposals for reference; they are not a parallel onboarding route. Dallas OCP 4.18.16 is a development test environment. The proposed published target is OCP 4.22, subject to PH infrastructure acceptance.
 
-## Target Audience
+## Learner path
 
-- **Role:** [Data scientists, platform engineers, developers, etc.]
-- **Experience level:** [Beginner, intermediate, or advanced]
-- **What they already know:** [Existing skills and knowledge]
-- **What they don't know:** [Skills this lab teaches]
+1. CPU Inference Fundamentals (15 min).
+2. Explore Model-as-a-Service (15 min).
+3. Query the Model API (15 min).
+4. Wire a RAG Frontend (15 min).
+5. Load and Chunk Documents (15 min).
+6. Query with RAG (15 min).
+7. Understand CPU Inference Performance (10 min).
+8. Conclusion (5 min).
 
-## Prerequisites
+## Infrastructure and credential boundary
 
-- [What the learner must know or have completed before starting]
-- [Can the lab validate these automatically? Yes/No — brief explanation]
+One assigned tenant namespace and tenant-scoped model access. No learner GPU or local model server is provisioned in the guided profile. Max 25 concurrent learners is a capacity proposal requiring validation, not a tested result. Preserve namespace isolation, short-lived key creation/revocation and workload-owned cleanup.
 
-<!-- If no prerequisites, write "None" -->
+## Acceptance and evidence
 
-## Learning Objectives
+Validate deployed images and terminal dependencies, then real model access and the full learner workflow. Record source/image revisions, failure behavior, tenant isolation and cleanup. CPU placement requires serving-team evidence. Remaining RCARS overlap review, model allocation, capacity and author acceptance are explicit intake gates.
 
-1. [Action verb] [specific, measurable outcome]
-2. [Action verb] [specific, measurable outcome]
-3. [Action verb] [specific, measurable outcome]
-
-<!-- Scale to duration: up to 3 objectives per 45 min of content. Start with action verbs: Configure, Deploy, Create, Implement, Troubleshoot, Monitor, Scale. Each should be testable. NOT: Understand, Learn, Know. -->
-
-## Content Type
-
-[Lab (hands-on) or Demo (presenter-led)]
-
-## Products & Technologies
-
-- [Official Red Hat product name with version if relevant]
-- [Additional products/technologies]
-
-<!-- Use official names: "Red Hat OpenShift", not "OpenShift". List upstream projects separately. -->
-
-## Module Map
-
-| Module | Title | Duration |
-|--------|-------|----------|
-| 1 | [Module title] | [XX min] |
-| 2 | [Module title] | [XX min] |
-| — | **Total hands-on** | **[X hours]** |
-| — | Intro / presentation | [~XX min] |
-| — | **Total lab** | **[~X hours]** |
-
-<!-- Each module 10-30 min. Total: lab 1-4 hours, demo 15-45 min. Modules should build on each other. -->
-
-## Difficulty Level
-
-[Beginner, Intermediate, or Advanced]
-
-## Environment
-
-**Learner view:** [What exists when the lab starts — pre-deployed resources, what participants see and interact with. Be specific about cluster details.]
-
-**Automation needed:** [Yes/No]
-
-[If yes, list what automation must provision — operators, per-user resources, sample apps, data sets.]
-
-## Infrastructure Requirements
-
-- **Cloud provider:** [CNV (default), AWS, or Troshka (bare-metal/nested virt)]
-- **Cluster type:** [Multinode or SNO (Single Node OpenShift)]
-- **OCP version:** [e.g. 4.20 — minimum 4.20]
-- **Topology:** [Shared cluster, per-student, or CNV pool]
-- **Sizing:** [Node types and counts with resources — e.g., "3 control plane (16 CPU, 64GB RAM), 6 workers (8 CPU, 32GB RAM, 100GB disk)"]
-- **Automation approach:** [Ansible, GitOps (Helm + ArgoCD), or combo]
-- **AI/MaaS:** [None, MaaS (open-source model), MaaS (frontier model), or dedicated GPU — include justification if not "none"]
-- **External services:** [Named services — e.g., github.com, registry.access.redhat.com — or "None"]
-- **AAP version:** [e.g. 2.5 — only if AAP is in products; omit otherwise]
-- **Non-GA products:** [Product name + version, with access plan — or "None (all products are GA)"]
-
-<!-- Not all fields must be known at intake. "TBD, estimating ~X" is fine. -->
-
-## Assessment Strategy (Optional)
-
-<!-- Optional — skip this section for demos or classic labs without verification. -->
-<!-- Relevant for Zero-Touch labs with solve/validate buttons or labs with automated checks. -->
-
-[If applicable: how will we know the learner successfully completed each module? Per module: verification script, solve/validate button, visible result in the UI, or automated check.]
+Tracking: RHDPCD-2140; GPTEINFRA-17783 / INTEL-46.

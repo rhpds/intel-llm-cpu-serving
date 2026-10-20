@@ -75,7 +75,7 @@ metadata:
 type: Opaque
 stringData:
   LLM_PROVIDER: genericOpenAi
-  GENERIC_OPEN_AI_BASE_PATH: "{maas_endpoint}/v1"
+  GENERIC_OPEN_AI_BASE_PATH: "${MAAS_ENDPOINT}/v1"
   GENERIC_OPEN_AI_MODEL_PREF: "{maas_model}"
   GENERIC_OPEN_AI_API_KEY: "{maas_api_key}"
   GENERIC_OPEN_AI_MAX_TOKENS: "512"
@@ -86,7 +86,7 @@ EOF
 
 == Deploy AnythingLLM
 
-Create a persistent volume for AnythingLLM's application data and the Deployment that runs the workbench. The ephemeral-storage request also lets the OpenShift scheduler account for the container's writable storage before placing it on a node:
+Use the OpenShift-compatible AnythingLLM workbench image from the standalone quickstart. The generic upstream image cannot start under OpenShift's assigned user ID. Create a persistent volume for the workbench home and application data, and the Deployment that runs it. The ephemeral-storage request also lets the OpenShift scheduler account for the container's writable storage before placing it on a node:
 
 [source,bash,role="execute",subs="attributes+"]
 ----
@@ -120,7 +120,8 @@ spec:
     spec:
       containers:
         - name: anythingllm
-          image: ghcr.io/mintplex-labs/anything-llm:latest
+          image: quay.io/rh-aiservices-bu/anythingllm-workbench@sha256:06c7575150900239aa12c619a3e7cea271682ad506c8489243d3fb1e981dd2e9
+          workingDir: /opt/app-root/src
           ports:
             - containerPort: 3001
           envFrom:
@@ -128,7 +129,7 @@ spec:
                 name: anythingllm-config
           volumeMounts:
             - name: anythingllm-storage
-              mountPath: /app/server/storage
+              mountPath: /opt/app-root/src
           resources:
             requests:
               cpu: "1"
@@ -212,7 +213,7 @@ You should see a response from the model in the AnythingLLM chat interface. The 
 If you see an error like "Could not connect to LLM provider":
 
 . Check that the MaaS endpoint is reachable: `curl -s ${MAAS_ENDPOINT}/v1/models -H "Authorization: Bearer ${MAAS_API_KEY}"`
-. Check the secret values: `oc get secret anythingllm-config -n {project_name} -o yaml`
+. Confirm the Secret exists without displaying its values: `oc get secret anythingllm-config -n {project_name} -o name`
 
 === Troubleshooting
 
