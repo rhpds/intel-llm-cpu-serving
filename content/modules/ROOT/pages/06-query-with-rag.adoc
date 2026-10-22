@@ -3,124 +3,99 @@
 
 _Estimated time: 15 minutes_
 
-You have a model endpoint, a RAG frontend, and documents loaded into the vector store.
-Now you will see how RAG actually works at query time -- and prove that it makes a measurable difference.
+The business question is whether the assistant can answer from an approved
+policy rather than inventing one. Use the fictional Northstar document from
+Module 5 to make that distinction visible.
 
-== The RAG Query Flow
+== Know: Follow the evidence
 
-When you ask a question through AnythingLLM with documents loaded, five things happen:
+The workbench embeds the question, retrieves relevant chunks, adds those chunks
+to the prompt, and calls the assigned model. The model does not search the
+vector database itself. A fluent answer is useful only when its facts agree
+with the retrieved source.
 
-----
-[1] User asks: "What are the FMLA eligibility requirements?"
-         |
-[2] AnythingLLM embeds the question into a vector
-         |
-[3] Vector similarity search finds the most relevant document chunks
-         |
-[4] Retrieved chunks are injected into the prompt as context
-         |
-[5] MaaS generates an answer grounded in the retrieved context
-----
+== Do: Ask for a policy fact
 
-The model does not search the vector store itself. AnythingLLM handles retrieval, builds the augmented prompt, and sends it to the MaaS endpoint. The model just sees a system prompt, context documents, and a user question.
-
-== Ask a Domain-Specific Question -- With RAG
-
-Open the AnythingLLM interface in your browser and navigate to the *hr-assistant* workspace. Ask:
+Keep the same Terminal, private evidence directory, and workspace slug from
+Module 5. In the browser, open the workspace you just created and ask:
 
 ----
-What are the eligibility requirements for FMLA leave?
+According to the Northstar workshop policy, what is the approval code for a learning-day request?
 ----
 
-Observe the response. If the FMLA document was loaded correctly in Module 5, the answer should reference specific requirements from the document -- not generic knowledge.
-
-You can also query via the API:
-
-[source,bash,role="execute",subs="attributes+"]
-----
-curl -s -X POST $\{ANYTHINGLLM_URL\}/api/v1/workspace/hr-assistant/chat \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What are the eligibility requirements for FMLA leave?", "mode": "chat"}' | python3 -m json.tool
-----
-
-== Ask the Same Question -- Without RAG
-
-Now ask the same question directly to the MaaS endpoint, bypassing AnythingLLM and the document store entirely:
+Repeat through the API in query mode. Query mode limits answering to workspace
+context; inspect its sources as well as its answer.
 
 [source,bash,role="execute"]
 ----
-curl -s "${MAAS_ENDPOINT}/v1/chat/completions" \
-  -H "Authorization: Bearer ${MAAS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"model\": \"${MAAS_MODEL}\",
-    \"messages\": [
-      {\"role\": \"user\", \"content\": \"What are the eligibility requirements for FMLA leave?\"}
-    ],
-    \"max_tokens\": 256
-  }" | python3 -c "import sys,json; print(json.load(sys.stdin)['choices'][0]['message']['content'])"
+curl -fsS -X POST "$ANYTHINGLLM_URL/api/v1/workspace/$WORKSPACE_SLUG/chat" \
+  -H "Authorization: Bearer $ANYTHINGLLM_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"According to the Northstar workshop policy, what is the approval code for a learning-day request?","mode":"query"}' \
+  -o grounded-answer.json
+python3 - <<'ANSWER_PY'
+import json
+from pathlib import Path
+data = json.loads(Path('grounded-answer.json').read_text())
+answer = data.get('textResponse', '')
+sources = data.get('sources')
+if data.get('error') or data.get('type') == 'abort' or not isinstance(answer, str) or 'CEDAR-742' not in answer:
+    raise SystemExit('STOP: the answer did not return the expected policy fact')
+if not isinstance(sources, list) or not any(isinstance(s, dict) and 'northstar-policy' in str(s.get('title', '')).lower() for s in sources):
+    raise SystemExit('STOP: no citation to the uploaded Northstar policy')
+print('PASS: expected policy fact and uploaded-policy citation returned')
+ANSWER_PY
 ----
 
-== Compare the Results
+Open the citation in the UI and compare the source passage with the answer.
+The automated check establishes a fact and citation, not general answer accuracy.
+Repeat the question in a fresh chat and record whether it remains grounded.
 
-[cols="1,1",options="header"]
-|===
-|With RAG (AnythingLLM) |Without RAG (Direct MaaS)
+== Do: Compare without retrieved context
 
-|References specific FMLA requirements from the loaded document
-|Gives a generic answer from training data
-
-|May cite 12-month employment period, 1,250 hours worked
-|May state vague or partially correct requirements
-
-|Answers are grounded in source material you can verify
-|Answers are plausible but unverifiable
-
-|Quality depends on the loaded documents
-|Quality depends only on model training
-|===
-
-The key insight: *RAG does not make the model smarter. It gives the model better information.* A CPU-optimized model with the right documents retrieved can outperform a much larger model answering from memory alone.
-
-== Try More Questions
-
-Ask these in the AnythingLLM workspace, then repeat them directly against the MaaS endpoint to see the difference:
-
-* "How much overtime pay is required by federal law?"
-* "What notice must an employer provide for FMLA leave?"
-* "Can an employer deny FMLA leave?"
-
-== Use Query Mode to See Retrieved Chunks
-
-AnythingLLM supports a *query* mode that shows you exactly which chunks were retrieved:
-
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-curl -s -X POST $\{ANYTHINGLLM_URL\}/api/v1/workspace/hr-assistant/chat \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What are the FMLA eligibility requirements?", "mode": "query"}' | python3 -m json.tool
+curl -fsS "$MAAS_ENDPOINT/v1/chat/completions" \
+  -H "Authorization: Bearer $MAAS_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$MAAS_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"What is the Northstar workshop learning-day approval code?\"}],\"max_tokens\":128}" \
+  -o direct-answer.json
+python3 -m json.tool direct-answer.json
 ----
 
-In `query` mode, the response includes the retrieved source chunks alongside the answer. This lets you verify that the system found the right documents and trace the answer back to its source.
+A direct answer has no access to the uploaded document. Record what happened;
+do not assume the direct answer must be wrong or that RAG always wins. The
+important difference is access to a verifiable source, not fluency or model size.
 
-== When RAG Fails
+== Do: Test missing evidence
 
-Try asking a question about a topic *not* covered by your loaded documents:
+Ask in a fresh workspace chat: "What is Northstar's monthly remote-work allowance?"
+The policy does not define one. A defensible response says the evidence is
+missing. If it invents an allowance, record the failure and discuss refusal
+settings and source coverage. Do not mark this test passed from a citation alone.
 
+== Record your evidence
+
+* Source/version: Northstar workshop policy LAB-2026-10.
+* Expected fact and source citation returned: ___
+* Repeated grounded response agreed with source: ___
+* Direct-model response and its limitations: ___
+* Unsupported question declined, or failure recorded: ___
+* Customer decision: which approved documents and ownership would be needed? ___
+
+Keep response files local to this learner session. Do not publish keys, access
+URLs, or customer documents. Unset the API key when finished:
+
+[source,bash,role="execute"]
 ----
-What is the company policy on remote work?
+unset ANYTHINGLLM_API_KEY
 ----
 
-Since you did not load a remote work policy, the model either says it does not know (good) or generates a generic answer (less good). This highlights an important principle: *RAG is only as good as the documents in the vector store.*
+== Takeaway
 
-== What You Proved
-
-* The *same model* gives different quality answers depending on whether it has retrieved context
-* Retrieved context produces answers grounded in verifiable source material
-* The RAG pipeline is transparent -- you can inspect which chunks were retrieved
-* Missing documents lead to missing answers, which is preferable to hallucinated answers
+RAG gives a model access to evidence. You still need to check retrieval,
+factual agreement, and behavior when evidence is absent before using it for
+an HR workflow.
 
 [.next-nav]
 xref:07-understand-cpu-performance.adoc[Next: Understand CPU Inference Performance -->]

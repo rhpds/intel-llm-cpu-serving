@@ -13,7 +13,7 @@ asciidoc:
     openshift_api_url: '%openshift_api_url%'
     openshift_console_url: '%openshift_console_url%'
     openshift_cluster_ingress_domain: '%openshift_cluster_ingress_domain%'
-    project_name: 'user-$GUID-llm-cpu-serving'
+    project_name: '%project_name%'
     maas_endpoint: '%maas_endpoint%'
     maas_model: '%maas_model%'
     maas_api_key: '%maas_api_key%'

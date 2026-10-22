@@ -3,158 +3,146 @@
 
 _Estimated time: 15 minutes_
 
-In this module you will:
+An HR assistant needs answers grounded in the organization's documents. In this
+exercise, use a small fictional policy with a distinctive approval code. That
+makes retrieval observable; a public policy question could be answered from the
+model's training data alone. This is workshop data, not employment guidance.
 
-* Understand why RAG systems need a document ingestion pipeline
-* Load and embed documents into the vector store
-* Verify that documents are chunked and searchable
+== Know: Upload, embed, retrieve
 
-You have a model endpoint and a RAG workbench connected to it.
-But without documents, the model answers only from its training data.
-In this module you will load documents into AnythingLLM, understand how chunking and embedding work, and inspect the vector store.
+Uploading parses a document into the document library. Embedding associates its
+chunks with a workspace and stores their vectors. Querying retrieves matching
+chunks before calling the assigned model. These are separate operations.
+AnythingLLM's native embedding model runs in the workbench; the generation
+model is accessed through the provisioned MaaS connection. An HTTP 200 from
+an upload does not establish successful embedding or grounded generation.
 
-== Know: Why Your Assistant Needs Documents
-
-Right now, your HR assistant answers questions from its training data only. Ask it about your organization's parental leave policy and it will confidently generate a plausible-sounding answer -- that has nothing to do with your actual policy.
-
-This is the core problem RAG solves: the model does not need to _know_ your company's policies. It needs to _read_ the right documents at query time and ground its answers in that context.
-
-== The RAG Ingestion Pipeline
-
-Every RAG system transforms raw documents into searchable vectors. The pipeline has four steps:
-
-----
-Source document (web page, PDF, text)
-    --> [1] Parse: extract raw text
-    --> [2] Chunk: split into 256-512 token passages
-    --> [3] Embed: convert each chunk to a vector
-    --> [4] Store: save text + vector in the vector database
-----
-
-Each step matters. Parse badly and you get garbled text. Chunk too large and retrieval becomes imprecise. Chunk too small and you lose context.
-
-== Chunking and Embedding
-
-LLMs have a finite context window. *Chunking* splits documents into passages small enough to fit, while keeping each self-contained. AnythingLLM uses ~512-token chunks by default -- a good balance of precision and context for policy documents.
-
-*Embedding* converts each chunk into a vector (list of numbers) capturing its meaning. Similar text produces similar vectors, enabling semantic search. AnythingLLM uses a built-in embedding model (`EMBEDDING_ENGINE: native`), independent of the LLM.
-
-=== Why 512 Tokens per Chunk?
-
-* *Too large* (2000+ tokens) -- the retriever returns passages with too much irrelevant content
-* *Too small* (50-100 tokens) -- each chunk lacks enough context to be useful on its own
-* *Just right* (256-512 tokens) -- each chunk is self-contained, small enough to be precise
-
-== Get the AnythingLLM API Key
-
-The AnythingLLM API requires an API key. Retrieve it from the running instance:
+== Do: Prepare a private working directory
 
 [source,bash,role="execute",subs="attributes+"]
 ----
-export ANYTHINGLLM_URL=$(oc get route anythingllm -n {project_name} -o jsonpath='https://\{.spec.host\}')
-echo "Get your API key from: $\{ANYTHINGLLM_URL\}/settings/api-keys"
+export ANYTHINGLLM_URL="$(oc get route anythingllm -n {project_name} -o jsonpath='https://\{.spec.host\}')"
+echo "Generate your learner-instance API key at: $\{ANYTHINGLLM_URL\}/settings/api-keys"
 ----
 
-Open the settings page in your browser and generate an API key. Set it in your terminal:
+Generate the key in that instance's settings, then enter it without echoing it
+or placing its value in shell history. Use this same Terminal through Module 6.
 
 [source,bash,role="execute"]
 ----
-export ANYTHINGLLM_API_KEY="your-api-key-here"
+read -r -s -p 'AnythingLLM API key: ' ANYTHINGLLM_API_KEY; echo
+export ANYTHINGLLM_API_KEY
+umask 077
+export RAG_EVIDENCE_DIR=$(mktemp -d "$HOME/rag-evidence.XXXXXX")
+cd "$RAG_EVIDENCE_DIR"
+cat > northstar-policy.txt <<'POLICY'
+Northstar workshop policy, version LAB-2026-10.
+Employees may request two paid learning days per quarter.
+The approval code for a learning-day request is CEDAR-742.
+Requests go to the employee's manager at least seven calendar days in advance.
+This fictional document does not define remote-work allowances.
+POLICY
 ----
 
-== Create a Workspace
+== Do: Create a workspace and keep its returned slug
 
-Create an HR Assistant workspace via the API:
+A repeated workspace name can produce a different slug. Use the returned value
+instead of assuming that the name is also its URL.
 
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-curl -s -X POST $\{ANYTHINGLLM_URL\}/api/v1/workspace/new \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "hr-assistant"}' | python3 -m json.tool
-----
-
-== Load a Document via URL
-
-Load an HR compliance document from the web into the workspace:
-
-[source,bash,role="execute",subs="attributes+"]
-----
-curl -s -X POST $\{ANYTHINGLLM_URL\}/api/v1/document/create-link \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" \
-  -H "Content-Type: application/json" \
-  -d '{"link": "https://www.dol.gov/agencies/whd/fmla"}' | python3 -m json.tool
-----
-
-This fetches the page, parses the HTML into text, chunks the text into passages, embeds each chunk, and stores the vectors in LanceDB.
-
-== Embed the Document into the Workspace
-
-After uploading, embed the document so it is searchable:
-
-[source,bash,role="execute",subs="attributes+"]
-----
-curl -s -X POST $\{ANYTHINGLLM_URL\}/api/v1/workspace/hr-assistant/update-embeddings \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" \
-  -H "Content-Type: application/json" \
-  -d '{"adds": ["custom-documents/url-www.dol.gov-agencies-whd-fmla.json"]}' | python3 -m json.tool
+curl -fsS -X POST "$ANYTHINGLLM_URL/api/v1/workspace/new" \
+  -H "Authorization: Bearer $ANYTHINGLLM_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"hr-assistant"}' -o workspace.json
+python3 - <<'WORKSPACE_PY'
+import json, re
+from pathlib import Path
+data = json.loads(Path('workspace.json').read_text())
+slug = (data.get('workspace') or {}).get('slug', '')
+if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', slug):
+    raise SystemExit('STOP: workspace creation did not return a usable slug')
+Path('workspace-slug.txt').write_text(slug)
+print('PASS: workspace slug recorded')
+WORKSPACE_PY
+export WORKSPACE_SLUG=$(cat workspace-slug.txt)
 ----
 
-== Verify the Loaded Documents
+Stop if any command fails; do not continue with an empty slug.
 
-Check the workspace document list:
+== Do: Upload the policy and use its returned location
 
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-curl -s $\{ANYTHINGLLM_URL\}/api/v1/workspace/hr-assistant \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" | python3 -m json.tool
+curl -fsS -X POST "$ANYTHINGLLM_URL/api/v1/document/upload" \
+  -H "Authorization: Bearer $ANYTHINGLLM_API_KEY" \
+  -F 'file=@northstar-policy.txt' -o upload.json
+python3 - <<'UPLOAD_PY'
+import json
+from pathlib import Path
+data = json.loads(Path('upload.json').read_text())
+docs = data.get('documents')
+if data.get('success') is not True or data.get('error') or not isinstance(docs, list) or not docs:
+    raise SystemExit('STOP: document parsing did not succeed')
+locations = [d.get('location') for d in docs if isinstance(d, dict)]
+if len(locations) != len(docs) or any(not isinstance(p, str) or not p for p in locations):
+    raise SystemExit('STOP: upload did not return document locations')
+Path('embeddings-request.json').write_text(json.dumps({'adds': locations}))
+print('PASS: returned document locations recorded; embedding is next')
+UPLOAD_PY
+curl -fsS -X POST "$ANYTHINGLLM_URL/api/v1/workspace/$WORKSPACE_SLUG/update-embeddings" \
+  -H "Authorization: Bearer $ANYTHINGLLM_API_KEY" \
+  -H 'Content-Type: application/json' \
+  --data-binary @embeddings-request.json -o embeddings.json
+python3 - <<'EMBED_PY'
+import json
+from pathlib import Path
+data = json.loads(Path('embeddings.json').read_text())
+if data.get('error') or not isinstance(data.get('workspace'), dict) or not data['workspace'].get('slug'):
+    raise SystemExit('STOP: embedding request was not accepted; inspect the workbench privately')
+print('PASS: embedding request accepted; verify workspace membership next')
+EMBED_PY
 ----
 
-=== Verify: Documents Are Embedded
+The returned document location includes an instance-generated identifier. Never
+guess a filename or reuse one copied from another learner's output.
 
-The response should show a workspace object with document count greater than zero. If the document count is zero, the embedding step may have failed. Re-run the update-embeddings API call.
+== Verify: Inspect workspace membership
 
-== Load Additional Documents
-
-Load more documents to build a richer knowledge base:
-
-[source,bash,role="execute",subs="attributes+"]
+[source,bash,role="execute"]
 ----
-curl -s -X POST $\{ANYTHINGLLM_URL\}/api/v1/document/create-link \
-  -H "Authorization: Bearer $\{ANYTHINGLLM_API_KEY\}" \
-  -H "Content-Type: application/json" \
-  -d '{"link": "https://www.dol.gov/agencies/whd/overtime"}' | python3 -m json.tool
+curl -fsS "$ANYTHINGLLM_URL/api/v1/workspace/$WORKSPACE_SLUG" \
+  -H "Authorization: Bearer $ANYTHINGLLM_API_KEY" -o workspace-documents.json
+python3 - <<'MEMBERSHIP_PY'
+import json
+from pathlib import Path
+expected = set(json.loads(Path('embeddings-request.json').read_text())['adds'])
+data = json.loads(Path('workspace-documents.json').read_text())
+workspaces = data.get('workspace')
+if not isinstance(workspaces, list) or len(workspaces) != 1:
+    raise SystemExit('STOP: expected one workspace')
+actual = {d.get('docpath') for d in workspaces[0].get('documents', []) if isinstance(d, dict)}
+if not expected or not expected <= actual:
+    raise SystemExit('STOP: uploaded policy is not embedded in this workspace')
+print('PASS: every uploaded document is associated with the workspace')
+MEMBERSHIP_PY
 ----
 
-== What Happened Under the Hood
+The returned workspace array should include your policy in its documents.
+Membership after the embedding request prepares the next test; neither alone proves
+that an answer used that document.
 
-When you loaded a document, AnythingLLM performed the full RAG ingestion pipeline:
+== Troubleshooting
 
-. *Fetched* the web page and extracted text content
-. *Chunked* the text into passages (default ~512 tokens each)
-. *Embedded* each chunk using the native embedding model
-. *Stored* the chunk text, vector, and metadata in LanceDB
+* HTTP 401/403: check your learner-instance API key; do not use a platform model key.
+* Upload fails: confirm the local file and workbench document processor are available.
+* Embedding fails: ask the lab owner to inspect the native embedding model and storage.
+* Workspace appears empty: confirm the returned slug and returned document locations.
 
-The LLM inference (via MaaS) is not involved in this step. Embedding uses a separate, lightweight model running locally inside the AnythingLLM pod.
+== Takeaway
 
-=== Troubleshooting
-
-[cols="1,2",options="header"]
-|===
-|Symptom |Resolution
-
-|`create-link` API returns 403
-|The API key is missing or incorrect. Regenerate it from the AnythingLLM settings page.
-
-|Document shows in workspace but with zero embeddings
-|The embedding step (`update-embeddings`) was not run, or the document filename does not match.
-
-|Embedding is very slow
-|AnythingLLM's native embedding model runs on CPU inside the pod. For large documents, this can take 1-2 minutes.
-
-|`update-embeddings` returns 404
-|The workspace name in the URL must match exactly.
-|===
+You can trace a policy from its source file to the library and workspace.
+Next, require both a source citation and the distinctive policy fact in an answer.
 
 [.next-nav]
 xref:06-query-with-rag.adoc[Next: Query with RAG -->]

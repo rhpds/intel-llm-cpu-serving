@@ -41,6 +41,9 @@ Store your MaaS connection details as environment variables:
 [source,bash,role="execute",subs="attributes+"]
 ----
 export MAAS_ENDPOINT="{maas_endpoint}"
+# Catalog endpoints may already include /v1. Keep one API prefix.
+MAAS_ENDPOINT="${MAAS_ENDPOINT%/}"
+export MAAS_ENDPOINT="${MAAS_ENDPOINT%/v1}"
 export MAAS_MODEL="{maas_model}"
 export MAAS_API_KEY="{maas_api_key}"
 ----
@@ -51,7 +54,7 @@ Verify the variables are set:
 ----
 echo "Endpoint: ${MAAS_ENDPOINT}"
 echo "Model: ${MAAS_MODEL}"
-echo "API Key: ${MAAS_API_KEY:0:8}..."
+test -n "$MAAS_API_KEY" && echo "API key assigned"
 ----
 
 == List Available Models
@@ -141,7 +144,7 @@ You should see a JSON response with:
 * A `usage` block showing `prompt_tokens`, `completion_tokens`, and `total_tokens`
 * A `model` field confirming which model handled the request
 
-If this works, you have a live connection to CPU inference on {intel_platform} -- no GPUs, no local model deployment, no infrastructure to manage.
+If this works, you have a live connection to the assigned MaaS model. Backend hardware placement requires platform evidence; the model name and API response alone do not establish CPU placement.
 
 === Troubleshooting
 
