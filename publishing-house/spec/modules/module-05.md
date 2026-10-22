@@ -1,20 +1,15 @@
 # Load and Chunk Documents
 
-Migration source: `content/modules/ROOT/pages/05-load-documents.adoc`.
+Learner source: `content/modules/ROOT/pages/05-load-documents.adoc`.
 
-Planned time: 15 minutes.
+Revised review outline:
 
-Existing exercise sections:
+- Know: Upload, embed, retrieve
+- Do: Prepare a private working directory
+- Do: Create a workspace and keep its returned slug
+- Do: Upload the policy and use its returned location
+- Verify: Inspect workspace membership
+- Troubleshooting
+- Takeaway
 
-- Know: Why Your Assistant Needs Documents
-- The RAG Ingestion Pipeline
-- Chunking and Embedding
-- Get the AnythingLLM API Key
-- Create a Workspace
-- Load a Document via URL
-- Embed the Document into the Workspace
-- Verify the Loaded Documents
-- Load Additional Documents
-- What Happened Under the Hood
-
-Acceptance: replay the source steps, verify observable results and obtain author/reviewer acceptance. Existing content is retained; migration does not mark this module complete.
+Acceptance: replay the current learner source, retain observable evidence, and obtain author/reviewer acceptance. Offline contract tests do not establish a successful live learner run.
